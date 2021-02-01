@@ -1,4 +1,4 @@
-# OSL Python Engineer test project.
+# Python Engineer test project.
 
 ## Getting Started.
 

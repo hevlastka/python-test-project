@@ -14,10 +14,10 @@ class User(db.Model):
     userName = db.Column(db.String())
     email = db.Column(db.String())
     company = db.Column(db.String())
+    CompanyId = db.Column(db.Integer())
     TeamId = db.Column(db.Integer())
 
 class Company(db.Model):
     __tablename__ = 'Company'
     CompanyId = db.Column(db.Integer(), primary_key=True)
     companyName = db.Column(db.String())
-    UserId = db.Column(db.Integer())

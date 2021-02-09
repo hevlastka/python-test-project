@@ -1,123 +1,67 @@
 import json
 
-from flask import request, render_template
+from flask import request
 
 from model.model import Company, Team, User
+from teams import fetch_data
 from . import create_app
 from db import database
 
 app = create_app()
+teams = database.get_all(Team)
+users = database.get_all(User)
+companies = database.get_all(Company)
 
-
-@app.route('/', methods=['GET'])
-# Change Ids of 'select_team_id' or 'select_company_id' 
-# to cover the last two points of the project
-def fetch_teams(select_team_id=None, select_company_id=None):
-    teams = database.get_all(Team)
-    users = database.get_all(User)
-    companies = database.get_all(Company)
+@app.route('/allTeams', methods=['GET'])
+def fetch_teams():
     try:
         if teams is None or users is None or companies is None:
             raise Exception()
     except ValueError as err:
         print(err, "there was a problem with the conection of the db.")
         return 404
-    if select_company_id is not None:
-        return __select_teams_with_companies(select_company_id, teams, companies, users)
-    return __get_teams(teams, select_team_id, users, companies)
+    return __get_teams(teams, users, companies)
 
-def __get_teams(teams, sel_team_id, users, companies):
-    if sel_team_id is not None:
-        new_team = __select_values(teams, sel_team_id, users, companies)
-    else:
-        new_team = __get_all(teams, users, companies)
-    # I do return json but I've got the posibility to create a template HTML
-    # return render_template("teachers.html", teachers=all_teams), 200
+def __get_teams(teams, users, companies):
+    new_team = fetch_data.get_all(teams, users, companies)
     return json.dumps(new_team), 200
 
-def __select_values(teams, sel_team_id, users, companies):
+@app.route('/selectTeam/<team_id>', methods=['GET'])
+def select_values(team_id):
     sel_companies = [
-        __select_specific_company(sel_team_id, company)
+        fetch_data.select_specific_company(team_id, company)
         for company in companies
     ]
-    sel_companies = delete_nulls(sel_companies)
+    sel_companies = fetch_data.delete_nulls(sel_companies)
     sel_user = [
-        __select_specific_user(sel_team_id, user, sel_companies)
+        fetch_data.select_specific_user(team_id, user, sel_companies)
         for user in users
     ]
-    sel_user = delete_nulls(sel_user)
+    sel_user = fetch_data.delete_nulls(sel_user)
     new_team = [
-        __select_specific_team(sel_team_id, team, sel_user)
+        fetch_data.select_specific_team(team_id, team, sel_user)
         for team in teams
     ]
-    new_team = delete_nulls(new_team)
-    return new_team
+    new_team = fetch_data.delete_nulls(new_team)
+    return json.dumps(new_team), 200
 
-def __select_specific_team(select_id, team, selected_user):
-    if team.TeamId == select_id:
-        return {
-            "id": team.TeamId,
-            "team_name": team.teamName,
-            "members": selected_user
-        }
-
-def __select_specific_user(select_id, user, sel_companies):
-    if user.TeamId == select_id:
-        return {
-            "id": user.UserId,
-            "user_name": user.userName,
-            "email": user.email,
-            "company": sel_companies
-        }
-
-def __select_specific_company(select_id, company):
-    if company.CompanyId == select_id:
-        return {
-            "id": company.CompanyId,
-            "company_name": company.companyName
-        }
-
-def __get_all(teams, users, companies):
-    all_teams = []
-    for team in teams:
-        sel_companies = [
-            __select_specific_company(team.TeamId, company)
-            for company in companies
-        ]
-        sel_companies = delete_nulls(sel_companies)
-        sel_user = [
-            __select_specific_user(team.TeamId, user, sel_companies)
-            for user in users
-        ]
-        sel_user = delete_nulls(sel_user)
-        new_team = {
-            "id": team.TeamId,
-            "team_name": team.teamName,
-            "members": sel_user
-        }
-
-        all_teams.append(new_team)
-    return all_teams
-
-def __select_teams_with_companies(select_id, teams, companies, users):
-    teams = __select_values(teams, select_id, users, companies)
+@app.route('/wiewTeamsWithComp/<company_id>', methods=['GET'])
+def select_teams_with_companies(company_id):
+    teams = select_values(company_id)
     sel_companies = [
-        __select_specific_company(select_id, company)
+        fetch_data.select_specific_company(company_id, company)
         for company in companies
         if company is not None
     ]
     sel_companies.append(teams)
-    sel_companies = [company for company in sel_companies if company is not None]
+    sel_companies = [
+        company for company in sel_companies if company is not None]
     return json.dumps(sel_companies), 200
 
-def delete_nulls(inputs):
-    return [item for item in inputs if item is not None]
-
-@app.route('/create', methods=['POST'])
+@app.route('/create', methods=['GET', 'POST'])
 def create_teams():
     data = request.get_json()
     team_name = data['teamName']
-
     team_members = __create_user(data)
 
     database.add_instance(Team, teamName=team_name, members=team_members)

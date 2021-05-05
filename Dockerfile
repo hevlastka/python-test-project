@@ -15,3 +15,5 @@ ENV FLASK_APP=teams/app.py
 VOLUME ["/opt/code"]
 
 CMD ["flask", "run", "--host=0.0.0.0"]
+
+#COPY templates /teams
